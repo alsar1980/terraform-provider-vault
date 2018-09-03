@@ -1,8 +1,8 @@
 package main
 
 import (
+	"alsar1980/terraform-providers/terraform-provider-vault/vault"
 	"github.com/hashicorp/terraform/plugin"
-	"github.com/terraform-providers/terraform-provider-vault/vault"
 )
 
 func main() {
