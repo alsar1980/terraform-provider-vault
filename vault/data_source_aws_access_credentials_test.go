@@ -41,18 +41,20 @@ func TestAccDataSourceAWSAccessCredentials_basic(t *testing.T) {
 func TestAccDataSourceAWSAccessCredentials_sts(t *testing.T) {
 	mountPath := acctest.RandomWithPrefix("aws")
 	accessKey, secretKey := getTestAWSCreds(t)
+	ttl := "35m"
 	resource.Test(t, resource.TestCase{
 		Providers: testProviders,
 		PreCheck:  func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDataSourceAWSAccessCredentialsConfig_sts(mountPath, accessKey, secretKey),
+				Config: testAccDataSourceAWSAccessCredentialsConfig_sts(mountPath, accessKey, secretKey, ttl),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrSet("data.vault_aws_access_credentials.test", "access_key"),
 					resource.TestCheckResourceAttrSet("data.vault_aws_access_credentials.test", "secret_key"),
 					resource.TestCheckResourceAttrSet("data.vault_aws_access_credentials.test", "security_token"),
 					resource.TestCheckResourceAttr("data.vault_aws_access_credentials.test", "type", "sts"),
 					resource.TestCheckResourceAttrSet("data.vault_aws_access_credentials.test", "lease_id"),
+					resource.TestCheckResourceAttrSet("data.vault_aws_access_credentials.test", "lease_duration"),
 					testAccDataSourceAWSAccessCredentialsCheck_tokenWorks(mountPath),
 				),
 			},
@@ -82,26 +84,28 @@ data "vault_aws_access_credentials" "test" {
 }`, mountPath, accessKey, secretKey)
 }
 
-func testAccDataSourceAWSAccessCredentialsConfig_sts(mountPath, accessKey, secretKey string) string {
+func testAccDataSourceAWSAccessCredentialsConfig_sts(mountPath, accessKey, secretKey, ttl string) string {
 	return fmt.Sprintf(`
 resource "vault_aws_secret_backend" "aws" {
     path = "%s"
     description = "Obtain AWS credentials."
     access_key = "%s"
-    secret_key = "%s"
+		secret_key = "%s"
 }
 
 resource "vault_aws_secret_backend_role" "role" {
     backend = "${vault_aws_secret_backend.aws.path}"
     name = "test"
-    policy = "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"iam:*\", \"Resource\": \"*\"}]}"
+		policy = "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"iam:*\", \"Resource\": \"*\"}]}"
+
 }
 
 data "vault_aws_access_credentials" "test" {
     backend = "${vault_aws_secret_backend.aws.path}"
     role = "${vault_aws_secret_backend_role.role.name}"
-    type = "sts"
-}`, mountPath, accessKey, secretKey)
+		type = "sts"
+		ttl  = "%s"
+}`, mountPath, accessKey, secretKey, ttl)
 }
 
 func testAccDataSourceAWSAccessCredentialsCheck_tokenWorks(mountPath string) resource.TestCheckFunc {
